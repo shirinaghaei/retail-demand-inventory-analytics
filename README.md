@@ -6,7 +6,7 @@ Data: [Online Retail II](https://archive.ics.uci.edu/dataset/502/online+retail+i
 
 This project builds on [Project 1: UK Online Retail Analysis](https://github.com/shirinaghaei/uk-online-retail-analysis), where the data was cleaned and analysed in Python.
 
-![Overview dashboard](images/dashboard_1_overview.png)
+![Overview dashboard](images/dashboard_1_overview.png.png)
 
 ## Business questions
 
@@ -55,7 +55,7 @@ All figures are for the 24-month window, excluding carriage.
 
 **XYZ analysis (demand variability).** Only 103 class-A products (AX) have stable demand, and they make 14.3% of revenue. Classes AY and AZ together make about 66% of revenue, so most of the revenue sits in products with variable demand. This is where safety stock matters.
 
-![ABC-XYZ dashboard](images/dashboard_2_abc_xyz.png)
+![ABC-XYZ dashboard](images/dashboard_2_abc_xyz.png.png)
 
 **Cancellations.** The overall cancellation rate is 2.45% of revenue. Among class-A products sold in at least 12 of the 24 months, the highest rates are Love Garland Painted Zinc (32.7%), Fairy Cake Flannel Assorted Colour (26.3%) and Vintage Blue Kitchen Cabinet (25.5%). These are products to investigate, not proof of quality problems: a few large cancelled orders can drive a rate like this.
 
@@ -71,11 +71,11 @@ All figures are for the 24-month window, excluding carriage.
 
 Seasonal naive was best and beat the naive baseline for 6 of the 10 products. A full Holt-Winters model was not used because 24 months of data leave too little history to fit seasonality and also test it. Even the best model has a median error of about 35%, which supports holding safety stock for variable items instead of relying on a single forecast number.
 
-![Forecast](images/forecast_top10.png)
+![Forecast](images/forecast_top10.png.png)
 
 **Inventory model (Excel).** For the 100 highest-revenue products the model calculates EOQ, safety stock and reorder point. With the assumptions below, safety stock for these 100 products is worth about £159K.
 
-![Forecast and inventory dashboard](images/dashboard_3_forecast_inventory.png)
+![Forecast and inventory dashboard](images/dashboard_3_forecast_inventory.png.png)
 
 ## Assumptions (inventory model)
 
