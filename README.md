@@ -1,12 +1,12 @@
 # Retail Demand and Inventory Analytics (SQL Server, Python, Excel, Power BI)
 
-An end-to-end analysis of UK online retail sales: from cleaned transaction data to a SQL Server model, ABC-XYZ product classification, a demand forecast with a proper backtest, an inventory policy model in Excel, and a three-page Power BI dashboard.
+An end-to-end analysis of UK online retail sales: from cleaned transaction data to a SQL Server model, ABC-XYZ product classification, a demand forecast evaluated on an independent test period, an inventory policy model in Excel, and a three-page Power BI dashboard.
 
 Data: [Online Retail II](https://archive.ics.uci.edu/dataset/502/online+retail+ii) (UCI Machine Learning Repository), a UK-based online retailer. All values are in GBP. Analysis window: **24 complete months, December 2009 to November 2011** (December 2011 is incomplete and excluded).
 
 This project builds on [Project 1: UK Online Retail Analysis](https://github.com/shirinaghaei/uk-online-retail-analysis), where the data was cleaned and analysed in Python.
 
-![Overview dashboard](images/dashboard_1_overview.png.png)
+![Overview dashboard](images/dashboard_1_overview.png)
 
 ## Business questions
 
@@ -26,7 +26,7 @@ This project builds on [Project 1: UK Online Retail Analysis](https://github.com
 
 ## Data model
 
-The sales data is stored in tables named after the SAP SD billing structure (`VBRK` billing header, `VBRP` billing items, `KNA1` customers, `MAKT` material descriptions). This is a **structural mapping of public data to SAP-style tables, not data extracted from an SAP system.**
+The sales data is stored in tables named after the SAP SD billing structure (`VBRK` billing header, `VBRP` billing items, `KNA1` customers, `MAKT` material descriptions). This is a **structural mapping of public data to SAP-style tables, not data extracted from an SAP system.** The billing header also carries a project-specific `COUNTRY` column (not a standard VBRK field) that keeps the country recorded on each invoice, including orders without a customer ID.
 
 ## Data quality and reconciliation
 
@@ -43,7 +43,8 @@ The tables were exported from Python and loaded into SQL Server with `BULK INSER
 Two issues found during the analysis:
 
 - **Carriage (`C2`)** is a shipping charge, not a product (267 lines, £13,426). It had passed the first cleaning step and appeared as a top product for Ireland. It is excluded from the product analysis.
-- **Orders without a customer ID** are 2,923 invoices worth £2,576,159, about **13% of revenue**. They stay in the totals but their country is unknown, so the dashboard shows them as "No customer ID" instead of dropping them.
+- **Orders without a customer ID** are 2,923 invoices worth £2,576,159, about **13% of revenue**. An earlier version took the country from the customer master only, so these orders lost their country. The raw data records a country on every invoice, so the model now keeps it: all 2,923 invoices have a country, and no revenue is shown as "Unknown". With all countries assigned, the United Kingdom makes **85.2%** of revenue.
+- **Cancellations and sales use the same window.** Product cancellation rates count only cancellations posted between December 2009 and November 2011, the same 24 months as sales.
 
 ## Key findings
 
@@ -55,27 +56,33 @@ All figures are for the 24-month window, excluding carriage.
 
 **XYZ analysis (demand variability).** Only 103 class-A products (AX) have stable demand, and they make 14.3% of revenue. Classes AY and AZ together make about 66% of revenue, so most of the revenue sits in products with variable demand. This is where safety stock matters.
 
-![ABC-XYZ dashboard](images/dashboard_2_abc_xyz.png.png)
+![ABC-XYZ dashboard](images/dashboard_2_abc_xyz.png)
 
-**Cancellations.** The overall cancellation rate is 2.45% of revenue. Among class-A products sold in at least 12 of the 24 months, the highest rates are Love Garland Painted Zinc (32.7%), Fairy Cake Flannel Assorted Colour (26.3%) and Vintage Blue Kitchen Cabinet (25.5%). These are products to investigate, not proof of quality problems: a few large cancelled orders can drive a rate like this.
+**Cancellations.** The overall cancellation rate is 2.45% of revenue. Among class-A products sold in at least 12 of the 24 months, the highest rates are Love Garland Painted Zinc (32.7%), Fairy Cake Flannel Assorted Colour (26.1%) and Vintage Blue Kitchen Cabinet (25.5%). These are products to investigate, not proof of quality problems: a few large cancelled orders can drive a rate like this.
 
-**Forecast.** Five simple models were compared on the last 6 months (June to November 2011) for the 10 highest-revenue products, trained on the first 18 months:
+**Forecast.** The evaluation keeps the test period out of every decision:
 
-| Model | Median WAPE |
+1. The 10 products were chosen by revenue in the **first 12 months only** (Dec 2009 to Nov 2010).
+2. Five simple models were compared on the **next 6 months** (Dec 2010 to May 2011), and one model was chosen there.
+3. That choice was then tested on the **last 6 months** (Jun to Nov 2011), data not used for any decision.
+
+Seasonal naive (same month last year) won the validation period and was chosen. On the independent test it did worst:
+
+| Model | Median WAPE, independent test |
 |---|---|
-| Seasonal naive (same month last year) | **34.8%** |
-| Moving average (3 months) | 43.0% |
-| Holt, damped trend | 45.6% |
-| Exponential smoothing | 46.9% |
-| Naive (last month) | 47.4% |
+| Moving average (3 months) | **48.8%** |
+| Holt, damped trend | 53.1% |
+| Exponential smoothing | 63.4% |
+| Naive (last month) | 65.8% |
+| Seasonal naive (chosen on validation) | 71.6% |
 
-Seasonal naive was best and beat the naive baseline for 6 of the 10 products. A full Holt-Winters model was not used because 24 months of data leave too little history to fit seasonality and also test it. Even the best model has a median error of about 35%, which supports holding safety stock for variable items instead of relying on a single forecast number.
+The chosen model beat the naive baseline for only 3 of the 10 products. The main finding is that **no simple model was reliable with 24 months of history**: the ranking of models changed between validation and test, and even the best model on the test had a median error near 50%. Several of the products are strongly seasonal Christmas items (for example Paper Chain Kit 50's Christmas and Rotating Silver Angels T-Light Holder), where one year of history is a weak guide. This supports holding safety stock for variable items instead of relying on a single forecast number. An earlier version of this project chose the model on the test period and reported a lower error (34.8%); that figure was optimistic and is replaced here.
 
-![Forecast](images/forecast_top10.png.png)
+![Forecast](images/forecast_top10.png)
 
 **Inventory model (Excel).** For the 100 highest-revenue products the model calculates EOQ, safety stock and reorder point. With the assumptions below, safety stock for these 100 products is worth about £159K.
 
-![Forecast and inventory dashboard](images/dashboard_3_forecast_inventory.png.png)
+![Forecast and inventory dashboard](images/dashboard_3_forecast_inventory.png)
 
 ## Assumptions (inventory model)
 
@@ -90,10 +97,10 @@ The dataset has no cost, lead-time or ordering-cost data, so these inputs are **
 ## Limitations
 
 - Only 24 months of data: seasonal patterns rest on two observations per month, and the XYZ classes include seasonality.
-- The forecast backtest covers 6 months and 10 products. The model was chosen on the same test period, so the result is somewhat optimistic.
+- The forecast evaluation covers 10 products, with 12 months to fit, 6 to choose a model and 6 to test. These windows are short, so model rankings are unstable.
 - The seasonal naive forecast repeats last year's pattern. It misses products whose pattern changed in the second year (for example Small Popcorn Holder in November 2011).
 - Safety stock assumes roughly normal demand and uses the standard deviation of 24 months of demand, which includes seasonal peaks. For highly seasonal items it is conservative.
-- Cancellation rates use all cancellations against sales in the 24-month window and can be inflated by single large orders.
+- Cancellation rates compare cancellations and sales posted in the same 24 months. A cancellation can relate to a sale from an earlier month, so these are posting-period ratios, not exact return rates, and single large orders can inflate them.
 - Cost, lead time and ordering cost are assumptions, not company data.
 
 ## Repository structure
@@ -115,7 +122,7 @@ images/                          Dashboard screenshots and forecast chart
 ## How to reproduce
 
 1. Download Online Retail II from UCI and run the cleaning and SAP-style model in the notebook (see Project 1).
-2. Run the export cell at the end of the notebook. It writes five CSV files.
+2. Run the export cell at the end of the notebook. It writes five CSV files (`vbrk.csv` has six columns, including `COUNTRY`).
 3. In SQL Server (SSMS), run `sql/01_create_and_load.sql`, then `sql/02_analysis.sql`, then `sql/03_powerbi_views.sql`. Adjust the `C:\retail_project\` path in the `BULK INSERT` statements to where you saved the CSV files.
 4. Run the forecasting cell in the notebook.
 5. Paste the top-100 product result from SQL into the `Data` sheet of the Excel model.
