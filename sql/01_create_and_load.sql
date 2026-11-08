@@ -26,7 +26,8 @@ CREATE TABLE dbo.vbrk (            -- billing header
     FKDAT DATETIME2(0)  NOT NULL,
     KUNAG INT           NULL,      -- customer id (empty for guest orders)
     NETWR DECIMAL(18,4) NOT NULL,
-    WAERK CHAR(3)       NOT NULL
+    WAERK CHAR(3)       NOT NULL,
+    COUNTRY NVARCHAR(60) NULL   -- original per-invoice country, even without customer ID
 );
 
 CREATE TABLE dbo.vbrp (            -- billing items
@@ -62,6 +63,9 @@ CREATE TABLE dbo.cancellations (   -- cancelled invoice lines
 );
 GO
 
+-- IMPORTANT: Run only in a scratch database (this script drops/recreates tables).
+-- The new vbrk.csv has six columns including COUNTRY. Regenerate it from
+-- the revised notebook before running this script.
 -- BLOCK 3: load the CSV files
 BULK INSERT dbo.vbrk FROM 'C:\retail_project\vbrk.csv'
 WITH (FORMAT = 'CSV', FIRSTROW = 2, FIELDQUOTE = '"', CODEPAGE = '65001', KEEPNULLS, TABLOCK);
@@ -85,6 +89,9 @@ UNION ALL SELECT 'vbrp', COUNT(*) FROM dbo.vbrp
 UNION ALL SELECT 'kna1', COUNT(*) FROM dbo.kna1
 UNION ALL SELECT 'makt', COUNT(*) FROM dbo.makt
 UNION ALL SELECT 'cancellations', COUNT(*) FROM dbo.cancellations;
+
+SELECT COUNT(*) AS guest_invoices_with_country
+FROM dbo.vbrk WHERE KUNAG IS NULL AND COUNTRY IS NOT NULL;
 
 SELECT ROUND(SUM(NETWR), 2) AS sales_line_value FROM dbo.vbrp;        -- about 19,411,634
 SELECT ROUND(SUM(CancelValue), 2) AS cancelled_value FROM dbo.cancellations;  -- about 471,063
