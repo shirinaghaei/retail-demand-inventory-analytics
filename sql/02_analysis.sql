@@ -17,7 +17,7 @@ SELECT  p.VBELN                                   AS invoice_no,
         k.FKDAT                                   AS invoice_date,
         DATEFROMPARTS(YEAR(k.FKDAT), MONTH(k.FKDAT), 1) AS month_start,
         k.KUNAG                                   AS customer_id,
-        c.LAND1                                   AS country,
+        COALESCE(NULLIF(k.COUNTRY, ''), c.LAND1)   AS country, -- prefer invoice country
         p.MATNR                                   AS stock_code,
         m.MAKTX                                   AS product_name,
         p.FKIMG                                   AS units,
@@ -130,6 +130,7 @@ WITH canc AS (
     SELECT StockCode AS stock_code, SUM(CancelValue) AS cancelled_value, SUM(Units) AS cancelled_units
     FROM dbo.cancellations
     WHERE StockCode <> 'C2'
+      AND InvoiceDate >= '2009-12-01' AND InvoiceDate < '2011-12-01'
     GROUP BY StockCode
 )
 SELECT  a.stock_code,
@@ -182,7 +183,8 @@ SELECT country, rnk, stock_code, product_name, ROUND(revenue, 0) AS revenue
 FROM ranked
 WHERE rnk <= 3
   AND country IN (SELECT TOP 5 country FROM dbo.vw_sales_lines
-                  WHERE country IS NOT NULL GROUP BY country ORDER BY SUM(line_value) DESC)
+                  WHERE country IS NOT NULL AND month_start >= '2009-12-01' AND month_start < '2011-12-01'
+                  GROUP BY country ORDER BY SUM(line_value) DESC)
 ORDER BY country, rnk, stock_code;
 GO
 
